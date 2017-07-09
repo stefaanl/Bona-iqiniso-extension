@@ -1,0 +1,20 @@
+{
+  "name": "Bona-iqiniso",
+  "description": "Bona-iqiniso Extension for Google Chrome",
+  "version": "1.0",
+  "manifest_version": 2,
+  "background": {
+    "scripts": [
+      "background.js"
+    ]
+  },
+  "browser_action": {
+    "default_title": "Bona-iqiniso",
+    "default_popup": "index.html"
+  },
+  "permissions": [
+      "activeTab",
+      "<all_urls>",
+      "cookies"
+  ]
+}
