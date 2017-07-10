@@ -14,22 +14,25 @@ var COOKIES = {};
 * Initially load the current tab URL */
 chrome.tabs.query({"active": true, "lastFocusedWindow": true}, function (tabs) {
     CURRENT_URL = tabs[0].url;
+    $("#page-title").text(tabs[0].title);
     info("Setting current URL [" + CURRENT_URL + "]");
 });
 
 /**
-* Bind capture page button event  */
-document.getElementById("capture").addEventListener("click", () => {
-  info("Executing DOM loader");
+* Initially takes a screenshot */
+chrome.tabs.captureVisibleTab(null, {}, function (image) {
+   // Generates the screenshot
+   info("Generated screenshot");
+   var imgElement = document.createElement("img");
+   imgElement.setAttribute("src", image);
+   imgElement.setAttribute("width", "300");
+   document.getElementById("image-wrapper").appendChild(imgElement);
+});
 
-  chrome.tabs.captureVisibleTab(null, {}, function (image) {
-     // Generates the screenshot
-     info("Generated screenshot");
-     var imgElement = document.createElement("img");
-     imgElement.setAttribute("src", image);
-     imgElement.setAttribute("width", "300");
-     document.getElementById("image-wrapper").appendChild(imgElement);
-  });
+/**
+* Bind capture page button event  */
+$("#capture").on("click", () => {
+  info("Executing DOM loader");
 
   // inject code to dom and fetch the dom as string
   chrome.tabs.executeScript({
@@ -39,7 +42,7 @@ document.getElementById("capture").addEventListener("click", () => {
 
 /**
 * Bind login button event  */
-document.getElementById("login").addEventListener("click", () => {
+$("#login").on("click", () => {
   // launch a new browser tab
   createTab(LOGIN_URL);
 });
@@ -63,39 +66,61 @@ function domResponse(response){
 }
 
 /**
-* Upload blob to server via XHR */
+* Upload blob to server via jQuery XHR */
 function uploadFile(file){
   info("Upload starting");
 
   // creating form data for upload
   var formData = new FormData();
-  info("Setting query param [url = " + CURRENT_URL + "]");
-  info("Setting form data [dom = FILE]");
+
   formData.append("dom", file);
+  info("Setting form data [dom = FILE]");
+  formData.append("pageName", $("#page-name").val());
+  info("Setting form data [pageName = " + $("#page-name").val() + "]");
+  formData.append("url", CURRENT_URL);
+  info("Setting form data [url = " + CURRENT_URL + "]");
+  var auth = getAuthObject();
+  for(var i in auth){
+    formData.append(i, auth[i]);
+    info("Setting form data [" + i + " = " + auth[i] + "]");
+  }
 
-  // creating XMLHttpRequest for filr upload
-  info("Uploading DOM to server");
-  var xhr = new XMLHttpRequest();
-  xhr.open("POST", API_POST_URL + "?url=" + CURRENT_URL + "&" + getAuthString(), true);
-  //xhr.setRequestHeader("Content-Type","multipart/form-data");
-  xhr.addEventListener("readystatechange", function (evt) {
-    info("xhr state changed [readyState: " + xhr.readyState + " : Status: " + xhr.status + "]");
+  info("Processing");
 
-    if (xhr.readyState == 4){
-      if(xhr.status == 200) {
-        info("Uploaded successfully");
-        var response = JSON.parse(this.responseText);
-        info("Parsed DOM with [" + response.parsedElementCount + "] xpath elements");
-        info("Created object ID [" + response.id + "]");
-        openMappingOnUI(response.id);
-      }else{
-        error("Uploaded error");
-        error("Response with status [" + xhr.status + "]");
-      }
-    }
-  });
-
-  xhr.send(formData);
+  $.ajax({
+       type: "POST",
+       url: API_POST_URL,
+       data: formData,
+       cache: false,
+       contentType: false,
+       processData: false,
+       xhr: function () {
+            var xhr = $.ajaxSettings.xhr();
+            if (xhr.upload) {
+                xhr.upload.addEventListener('progress', function (event) {
+                    var percent = 0;
+                    var position = event.loaded || event.position;
+                    var total = event.total;
+                    if (event.lengthComputable) {
+                        percent = Math.ceil(position / total * 100);
+                    }
+                    $("#upload").text(percent + "%");
+                }, false);
+            }
+            return xhr;
+        },
+       success: function (data) {
+            info("Uploaded successfully");
+            info("Parsed DOM with [" + data.parsedElementCount + "] xpath elements");
+            info("Created object ID [" + data.id + "]");
+            openMappingOnUI(data.id);
+        },
+        error: function (e) {
+            // handle error
+            error("Uploaded error");
+            error("Response with status [" + e.status + "]");
+        }
+      });
 }
 
 /**
@@ -103,14 +128,14 @@ function uploadFile(file){
 function openMappingOnUI(id){
   if(id != ""){
     CURRENT_MAPPING_URL = MAPPING_ITEM_URL_TEMPLATE.replace("{id}", id);
-    show("launch-pane");
+    $("#launch-pane").show();
     // binding a new event to launch click
-    document.getElementById("launch").addEventListener("click", () => {
+    $("#launch").on("click", () => {
       info("Launch mapping clicked");
       createTab(CURRENT_MAPPING_URL);
     });
   }else{
-    hide("launch-pane");
+    $("#launch-pane").hide();
   }
 }
 
@@ -122,16 +147,16 @@ function createTab(url){
 }
 
 /**
-* Create auth query string with expected cookies */
-function getAuthString(){
-  var qsArray = [];
+* Create auth properties in cookies */
+function getAuthObject(){
+  var qsObject = {};
   var keys = Object.keys(COOKIES);
   for (var i in keys) {
     if(COOKIES[keys[i]])
-      qsArray.push(keys[i] + "=" + COOKIES[keys[i]]);
+      qsObject[keys[i]] = COOKIES[keys[i]];
   }
 
-  return qsArray.join("&");
+  return qsObject;
 }
 
 /**
@@ -166,13 +191,13 @@ var getCookies = function(){
 function cookieAvailableCheck(){
   if(COOKIES_AVAILABLE){
     // cookies are available
-    hide("login-pane");
-    show("capture-pane");
+    $("#login-pane").hide();
+    $("#capture-pane").show();
   }else{
     // cookies missing. need to login
-    show("login-pane");
-    hide("capture-pane");
-    hide("connecting");
+    $("#login-pane").show();
+    $("#capture-pane").hide();
+    $("#connecting").hide();
   }
 }
 
@@ -192,20 +217,4 @@ function error(text){
   var el = document.getElementById("log");
   el.innerHTML = el.innerHTML + "\n" + time + "" + "<span style='color:red'>" + text + "</span>";
   console.log("error : " + text);
-}
-
-/**
-* Show element by id */
-function show(id){
-  var el = document.getElementById(id);
-  if(el)
-    el.style.display = "block";
-}
-
-/**
-* Hide element by id */
-function hide(id){
-  var el = document.getElementById(id);
-  if(el)
-    el.style.display = "none";
 }

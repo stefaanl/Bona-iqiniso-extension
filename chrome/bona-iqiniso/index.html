@@ -5,8 +5,11 @@
     <h2>Bona-iqiniso</h2>
 
     <div style="display:none;" id="capture-pane">
-      <button id="capture">Capture Page</button>
       <div id="image-wrapper"></div>
+      <p id="page-title"></p>
+      <input type="text" id="page-name" placeholder="Enter a name for this page"/>
+      <button id="capture">Capture Page</button>
+      <div id="upload"></div>
     </div>
 
     <div style="display:block;" id="login-pane">
@@ -20,6 +23,7 @@
 
     <pre id="log" style="width:390px;overflow-x:scroll;"><div style="color:green;">DEBUG LOG</div></pre>
 
+    <script src="libs/jquery-3.2.1.min.js"></script>
     <script src="main_content_script.js"></script>
   </body>
 </html>
