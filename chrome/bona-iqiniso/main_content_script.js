@@ -1,6 +1,6 @@
 /**
 * Global variables */
-var API_POST_URL = "http://localhost:9000/dom/insert"; //"http://back.bona-iqiniso.com/dom/insert";
+var API_POST_URL = "http://localhost:9000/dom/"; //"http://back.bona-iqiniso.com/dom/";
 var COOKIE_URL_PATTERN = "http://*.bona-iqiniso.com";
 var LOGIN_URL = "http://front.bona-iqiniso.com/login";
 var MAPPING_ITEM_URL_TEMPLATE = "http://front.bona-iqiniso.com/mapping/{id}";
@@ -89,7 +89,7 @@ function uploadFile(file){
 
   $.ajax({
        type: "POST",
-       url: API_POST_URL,
+       url: getApiURL("insert"),
        data: formData,
        cache: false,
        contentType: false,
@@ -114,13 +114,29 @@ function uploadFile(file){
             info("Parsed DOM with [" + data.parsedElementCount + "] xpath elements");
             info("Created object ID [" + data.id + "]");
             openMappingOnUI(data.id);
-        },
-        error: function (e) {
-            // handle error
-            error("Uploaded error");
-            error("Response with status [" + e.status + "]");
-        }
-      });
+       },
+       error: function (e) {
+           // handle error
+           error("Uploaded error");
+           error("Response with status [" + e.status + "]");
+       }
+  });
+}
+
+/**
+* Makes a health check to onfirm active session is available */
+function healthCheck(){
+  $.ajax({
+       type: "GET",
+       url: getApiURL("check"),
+       cache: false,
+       contentType: false,
+       processData: false,
+       error: function (e) {
+            COOKIES_AVAILABLE = false;
+	    cookieAvailableCheck();
+       }
+   });
 }
 
 /**
@@ -175,6 +191,7 @@ var getCookies = function(){
 
     if(Object.keys(COOKIES).length == COOKIE_CHECK.length){
       info("Found " + COOKIE_CHECK.length + " cookie(s)");
+      healthCheck();
       COOKIES_AVAILABLE = true;
     }else{
       error("Cookies missing. Need to login");
@@ -197,6 +214,10 @@ function cookieAvailableCheck(){
     $("#capture-pane").hide();
     $("#connecting").hide();
   }
+}
+
+function getApiURL(endpoint){
+  return API_POST_URL + endpoint;
 }
 
 /**
