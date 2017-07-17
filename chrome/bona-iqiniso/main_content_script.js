@@ -1,6 +1,6 @@
 /**
 * Global variables */
-var API_POST_URL = "http://localhost:9000/dom/insert";
+var API_POST_URL = "http://localhost:9000/dom/insert"; //"http://back.bona-iqiniso.com/dom/insert";
 var COOKIE_URL_PATTERN = "http://*.bona-iqiniso.com";
 var LOGIN_URL = "http://front.bona-iqiniso.com/login";
 var MAPPING_ITEM_URL_TEMPLATE = "http://front.bona-iqiniso.com/mapping/{id}";
@@ -164,18 +164,16 @@ function getAuthObject(){
 var getCookies = function(){
   info("Getting cookies from " + COOKIE_URL_PATTERN);
 
-  var matchedCount = 0;
   chrome.cookies.getAll({ url : COOKIE_URL_PATTERN}, function (response){
     for (var i in COOKIE_CHECK) {
       for (var j in response) {
         if(COOKIE_CHECK[i] == response[j].name){
           COOKIES[response[j].name] = response[j].value;
-          matchedCount++;
         }
       }
     }
 
-    if(matchedCount == COOKIE_CHECK.length){
+    if(Object.keys(COOKIES).length == COOKIE_CHECK.length){
       info("Found " + COOKIE_CHECK.length + " cookie(s)");
       COOKIES_AVAILABLE = true;
     }else{
