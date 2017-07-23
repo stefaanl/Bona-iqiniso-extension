@@ -1,13 +1,13 @@
 /**
 * Global variables */
 var API_POST_URL = "http://localhost:9000/dom/"; //"http://back.bona-iqiniso.com/dom/";
-var COOKIE_URL_PATTERN = "http://*.bona-iqiniso.com";
+var COOKIE_URL_PATTERN = "http://localhost"; //"http://*.bona-iqiniso.com";
 var LOGIN_URL = "http://front.bona-iqiniso.com/login";
 var MAPPING_ITEM_URL_TEMPLATE = "http://front.bona-iqiniso.com/mapping/{id}";
 var CURRENT_MAPPING_URL = "";
 var CURRENT_URL = "";
 var COOKIES_AVAILABLE = false;
-var COOKIE_CHECK = ["userName", "organization", "sessionId"];
+var COOKIE_CHECK = ["sessionId"];
 var COOKIES = {};
 
 /**
