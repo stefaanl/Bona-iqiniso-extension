@@ -1,13 +1,10 @@
 /**
 * Global variables */
-var API_POST_URL = "http://localhost:9000/dom/"; //"http://back.bona-iqiniso.com/dom/";
-var COOKIE_URL_PATTERN = "http://localhost"; //"http://*.bona-iqiniso.com";
-var LOGIN_URL = "http://front.bona-iqiniso.com/login";
+var API_POST_URL = "http://back.bona-iqiniso.com/v1.0"; //"http://localhost:9000/v1.0"; //"http://back.bona-iqiniso.com/v1.0";
 var MAPPING_ITEM_URL_TEMPLATE = "http://front.bona-iqiniso.com/mapping/{id}";
 var CURRENT_MAPPING_URL = "";
 var CURRENT_URL = "";
 var COOKIES_AVAILABLE = false;
-var COOKIE_CHECK = ["sessionId"];
 var COOKIES = {};
 
 /**
@@ -43,9 +40,15 @@ $("#capture").on("click", () => {
 /**
 * Bind login button event  */
 $("#login").on("click", () => {
-  // launch a new browser tab
-  createTab(LOGIN_URL);
+  login();
 });
+
+/**
+ * Bind logout button event  */
+$("#logout").on("click", () => {
+    logout();
+});
+
 
 /**
 * DOM response callback method */
@@ -89,7 +92,7 @@ function uploadFile(file){
 
   $.ajax({
        type: "POST",
-       url: getApiURL("insert"),
+       url: getApiURL("/mappings"),
        data: formData,
        cache: false,
        contentType: false,
@@ -119,24 +122,11 @@ function uploadFile(file){
            // handle error
            error("Uploaded error");
            error("Response with status [" + e.status + "]");
+           if(e.status == "401"){
+               logout();
+           }
        }
   });
-}
-
-/**
-* Makes a health check to onfirm active session is available */
-function healthCheck(){
-  $.ajax({
-       type: "GET",
-       url: getApiURL("check"),
-       cache: false,
-       contentType: false,
-       processData: false,
-       error: function (e) {
-            COOKIES_AVAILABLE = false;
-	    cookieAvailableCheck();
-       }
-   });
 }
 
 /**
@@ -178,47 +168,77 @@ function getAuthObject(){
 /**
 * Retrieves cookies from the COOKIE_URL_PATTERN url */
 var getCookies = function(){
-  info("Getting cookies from " + COOKIE_URL_PATTERN);
+  info("Getting session data");
+  getSessionId();
+}();
 
-  chrome.cookies.getAll({ url : COOKIE_URL_PATTERN}, function (response){
-    for (var i in COOKIE_CHECK) {
-      for (var j in response) {
-        if(COOKIE_CHECK[i] == response[j].name){
-          COOKIES[response[j].name] = response[j].value;
-        }
-      }
-    }
-
-    if(Object.keys(COOKIES).length == COOKIE_CHECK.length){
-      info("Found " + COOKIE_CHECK.length + " cookie(s)");
-      healthCheck();
-      COOKIES_AVAILABLE = true;
-    }else{
-      error("Cookies missing. Need to login");
-    }
-
-    cookieAvailableCheck();
-  })
-}()
-
-/**
-* Show or hide login depending on the cookie availability */
-function cookieAvailableCheck(){
-  if(COOKIES_AVAILABLE){
-    // cookies are available
-    $("#login-pane").hide();
-    $("#capture-pane").show();
-  }else{
-    // cookies missing. need to login
-    $("#login-pane").show();
-    $("#capture-pane").hide();
-    $("#connecting").hide();
-  }
+function setSessionData(data) {
+    setUsernameUi(data.userName);
+    COOKIES['sessionId'] = data.sessionId;
+    chrome.storage.local.set({'sessionId': data.sessionId}, function() {});
+    chrome.storage.local.set({'userName': data.userName}, function() {});
 }
+
+function setUsernameUi(username) {
+    $("#user").text(username);
+}
+
+function getSessionId() {
+    chrome.storage.local.get(['sessionId', 'userName'], function(data) {
+        if(data.sessionId){
+            setUsernameUi(data.userName);
+            COOKIES['sessionId'] = data.sessionId;
+            $("#login-pane").hide();
+            $("#capture-pane").show();
+            $("#user-pane").show();
+        }else{
+            $("#login-pane").show();
+            $("#capture-pane").hide();
+            $("#connecting").hide();
+            $("#user-pane").hide();
+            error("Need to login");
+        }
+    });
+}
+
+function login() {
+    var username = $("#username").val();
+    var password = $("#password").val();
+    var formData = {
+        userName : username,
+        password : password
+    }
+
+    $.ajax({
+        type: "POST",
+        url: getApiURL("/users/" + username + "/login"),
+        data: JSON.stringify(formData),
+        cache: false,
+        dataType: 'json',
+        contentType: "application/json",
+        success: function (data) {
+            setSessionData(data);
+            getSessionId();
+        },
+        error: function (e) {
+            // handle error
+            error("Uploaded error");
+        }
+    });
+}
+
+
+function logout() {
+    chrome.storage.local.remove('sessionId');
+    getSessionId();
+}
+
 
 function getApiURL(endpoint){
   return API_POST_URL + endpoint;
 }
+
+
 
 /**
 * Logging util for info messages */

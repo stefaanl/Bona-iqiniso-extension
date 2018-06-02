@@ -15,6 +15,7 @@
   "permissions": [
       "activeTab",
       "<all_urls>",
-      "cookies"
+      "cookies",
+      "storage"
   ]
 }

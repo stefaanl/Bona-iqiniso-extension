@@ -4,6 +4,10 @@
   <body style="min-width:400px;">
     <h2>Bona-iqiniso</h2>
 
+    <div style="display:none;" id="user-pane">
+      <span id="user"></span><button id="logout">Logout</button>
+    </div>
+
     <div style="display:none;" id="capture-pane">
       <div id="image-wrapper"></div>
       <p id="page-title"></p>
@@ -14,6 +18,8 @@
 
     <div style="display:block;" id="login-pane">
       <div id="connecting">Connecting...</div>
+      <input type="text" id="username"> </br>
+      <input type="password" id="password">
       <button id="login">Login</button>
     </div>
 
