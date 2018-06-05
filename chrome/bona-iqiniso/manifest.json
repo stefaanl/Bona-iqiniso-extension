@@ -18,5 +18,8 @@
       "<all_urls>",
       "storage",
       "unlimitedStorage"
-  ]
+  ],
+  "icons": {
+    "128": "images/icon128.png"
+  }
 }

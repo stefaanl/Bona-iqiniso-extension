@@ -77,6 +77,11 @@ function progress(complete) {
 $("#capture").on("click", () => {
     info("Executing DOM loader");
 
+    chrome.tabs.setZoom(null, 1.0, function () {
+
+    });
+
+
     chrome.tabs.executeScript({
         code: "window.scrollTo(0,0)"
     });
