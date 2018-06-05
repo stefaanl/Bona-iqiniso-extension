@@ -9,13 +9,14 @@
     ]
   },
   "browser_action": {
-    "default_title": "Bona-iqiniso",
+    "default_title": "Bona-iqiniso Mapping Tool v1.0",
     "default_popup": "index.html"
   },
   "permissions": [
       "activeTab",
+      "tabs",
       "<all_urls>",
-      "cookies",
-      "storage"
+      "storage",
+      "unlimitedStorage"
   ]
 }

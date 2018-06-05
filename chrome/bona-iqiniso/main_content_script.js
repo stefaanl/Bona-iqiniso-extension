@@ -4,8 +4,8 @@ var API_POST_URL = "http://back.bona-iqiniso.com/v1.0"; //"http://localhost:9000
 var MAPPING_ITEM_URL_TEMPLATE = "http://front.bona-iqiniso.com/mapping/{id}";
 var CURRENT_MAPPING_URL = "";
 var CURRENT_URL = "";
-var COOKIES_AVAILABLE = false;
 var COOKIES = {};
+var FULLSCREEN = null;
 
 /**
 * Initially load the current tab URL */
@@ -15,26 +15,85 @@ chrome.tabs.query({"active": true, "lastFocusedWindow": true}, function (tabs) {
     info("Setting current URL [" + CURRENT_URL + "]");
 });
 
-/**
-* Initially takes a screenshot */
-chrome.tabs.captureVisibleTab(null, {}, function (image) {
-   // Generates the screenshot
-   info("Generated screenshot");
-   var imgElement = document.createElement("img");
-   imgElement.setAttribute("src", image);
-   imgElement.setAttribute("width", "300");
-   document.getElementById("image-wrapper").appendChild(imgElement);
-});
+function aliveCheck() {
+    var auth = getAuthObject();
+    var sessionId = auth['sessionId'];
+    if(!sessionId){
+        return;
+    }
+
+    $.ajax({
+        type: "GET",
+        url: getApiURL("/me/check"),
+        headers : {
+          Authorization : "Bearer " + sessionId
+        },
+        cache: false,
+        dataType: 'json',
+        contentType: "application/json",
+        success: function (data) {
+            info("Alive check success")
+            setTimeout(aliveCheck, 15000);
+        },
+        error: function (e) {
+            // handle error
+            error(JSON.stringify(e))
+            error("Health check returned false");
+            logout();
+        }
+    });
+};
+
+function startCollectingDom(blob) {
+    if(blob)
+        info("Screenshot created")
+
+    $("#img").attr("src", URL.createObjectURL(blob));
+    $("#img").show();
+
+    FULLSCREEN = blob;
+
+    // inject code to dom and fetch the dom as string
+    chrome.tabs.executeScript({
+        code: "document.documentElement.innerHTML"
+    }, domResponse);
+}
+
+function displayCaptures(filenames) {
+    if(filenames && filenames.length > 0)
+        startCollectingDom(filenames[0]);
+}
+
+function errorHandler(reason) {
+    error(reason);
+}
+
+function progress(complete) {
+    $("#upload").text("Preparing " + Math.ceil(complete * 100) + "%")
+}
 
 /**
 * Bind capture page button event  */
 $("#capture").on("click", () => {
-  info("Executing DOM loader");
+    info("Executing DOM loader");
 
-  // inject code to dom and fetch the dom as string
-  chrome.tabs.executeScript({
-    code: "document.documentElement.innerHTML"
-  }, domResponse);
+    chrome.tabs.executeScript({
+        code: "window.scrollTo(0,0)"
+    });
+
+    /**
+    * Initially takes a screenshot and Add bounding box to all elements*/
+    setTimeout(function() {
+        chrome.tabs.executeScript({
+            code: "document.querySelectorAll('*').forEach(function(node) { node.setAttribute('bi--box', node.getBoundingClientRect().x + ':' + node.getBoundingClientRect().y + ':' + node.getBoundingClientRect().width + ':' + node.getBoundingClientRect().height) });"
+        }, function () {
+            chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+                var tab = tabs[0];
+                CaptureAPI.captureToBlobs(tab, displayCaptures, errorHandler, progress, function(){});
+            });
+        });
+
+    }, 1000);
 });
 
 /**
@@ -77,16 +136,14 @@ function uploadFile(file){
   var formData = new FormData();
 
   formData.append("dom", file);
+  formData.append("screenshot", FULLSCREEN);
   info("Setting form data [dom = FILE]");
   formData.append("pageName", $("#page-name").val());
   info("Setting form data [pageName = " + $("#page-name").val() + "]");
   formData.append("url", CURRENT_URL);
   info("Setting form data [url = " + CURRENT_URL + "]");
   var auth = getAuthObject();
-  for(var i in auth){
-    formData.append(i, auth[i]);
-    info("Setting form data [" + i + " = " + auth[i] + "]");
-  }
+  var sessionId = auth['sessionId'];
 
   info("Processing");
 
@@ -97,6 +154,9 @@ function uploadFile(file){
        cache: false,
        contentType: false,
        processData: false,
+       headers : {
+           Authorization : "Bearer " + sessionId
+       },
        xhr: function () {
             var xhr = $.ajaxSettings.xhr();
             if (xhr.upload) {
@@ -107,7 +167,7 @@ function uploadFile(file){
                     if (event.lengthComputable) {
                         percent = Math.ceil(position / total * 100);
                     }
-                    $("#upload").text(percent + "%");
+                    $("#upload").text("Uploading " + percent + "%");
                 }, false);
             }
             return xhr;
@@ -116,7 +176,7 @@ function uploadFile(file){
             info("Uploaded successfully");
             info("Parsed DOM with [" + data.parsedElementCount + "] xpath elements");
             info("Created object ID [" + data.id + "]");
-            openMappingOnUI(data.id);
+            //openMappingOnUI(data.id);
        },
        error: function (e) {
            // handle error
@@ -155,22 +215,15 @@ function createTab(url){
 /**
 * Create auth properties in cookies */
 function getAuthObject(){
-  var qsObject = {};
-  var keys = Object.keys(COOKIES);
-  for (var i in keys) {
-    if(COOKIES[keys[i]])
-      qsObject[keys[i]] = COOKIES[keys[i]];
-  }
-
-  return qsObject;
+  return COOKIES;
 }
 
 /**
 * Retrieves cookies from the COOKIE_URL_PATTERN url */
-var getCookies = function(){
+(function(){
   info("Getting session data");
-  getSessionId();
-}();
+  getSessionId(aliveCheck);
+})();
 
 function setSessionData(data) {
     setUsernameUi(data.userName);
@@ -183,11 +236,12 @@ function setUsernameUi(username) {
     $("#user").text(username);
 }
 
-function getSessionId() {
+function getSessionId(callback) {
     chrome.storage.local.get(['sessionId', 'userName'], function(data) {
         if(data.sessionId){
             setUsernameUi(data.userName);
             COOKIES['sessionId'] = data.sessionId;
+            if(callback && typeof callback === "function") callback(data.sessionId);
             $("#login-pane").hide();
             $("#capture-pane").show();
             $("#user-pane").show();
@@ -222,7 +276,7 @@ function login() {
         },
         error: function (e) {
             // handle error
-            error("Uploaded error");
+            error("Login error");
         }
     });
 }
@@ -257,3 +311,40 @@ function error(text){
   el.innerHTML = el.innerHTML + "\n" + time + "" + "<span style='color:red'>" + text + "</span>";
   console.log("error : " + text);
 }
+
+
+
+var dimensions = {};
+dimensions.top = -window.scrollY;
+dimensions.left = -window.scrollX;
+dimensions.width = 100;
+dimensions.height = 200;
+
+function capture(tabId, dimensions) {
+    var canvas = null;
+    chrome.tabs.captureVisibleTab(tabId, { format: "png" }, function(dataUrl) {
+        if (!canvas) {
+            canvas = document.createElement("canvas");
+            document.body.appendChild(canvas);
+        }
+        var image = new Image();
+
+        image.onload = function() {
+            canvas.width = dimensions.width;
+            canvas.height = dimensions.height;
+            var context = canvas.getContext("2d");
+            context.drawImage(image,
+                dimensions.left, dimensions.top,
+                dimensions.width, dimensions.height,
+                0, 0,
+                dimensions.width, dimensions.height
+            );
+            var croppedDataUrl = canvas.toDataURL("image/png");
+            chrome.tabs.create({
+                url: croppedDataUrl,
+                windowId: tabId
+            });
+        }
+        image.src = dataUrl;
+    });
+};

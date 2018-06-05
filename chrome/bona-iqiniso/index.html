@@ -9,7 +9,9 @@
     </div>
 
     <div style="display:none;" id="capture-pane">
-      <div id="image-wrapper"></div>
+      <div id="image-wrapper">
+        <img id="img" height="100" style="display: none;"/>
+      </div>
       <p id="page-title"></p>
       <input type="text" id="page-name" placeholder="Enter a name for this page"/>
       <button id="capture">Capture Page</button>
@@ -30,6 +32,7 @@
     <pre id="log" style="width:390px;overflow-x:scroll;"><div style="color:green;">DEBUG LOG</div></pre>
 
     <script src="libs/jquery-3.2.1.min.js"></script>
+    <script src="capture.api.js"></script>
     <script src="main_content_script.js"></script>
   </body>
 </html>
